@@ -4,6 +4,8 @@
 # Link: https://docs.kedro.org/en/stable/catalog-data/introduction/#data-catalog
 
 
+# DATA PROCESSING ------------------------------------------------------------------------------------
+
 # ---------------------------------------------------------------------
 # INPUT — the original historical dataset, untouched.
 # ---------------------------------------------------------------------
@@ -66,3 +68,48 @@ data_quality_report:
   metadata:
     kedro-viz:
       layer: reporting
+
+
+# FEATURE ENGINEERING -----------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# INTERMEDIATE OUTPUTS — one per node, same rationale as data_processing:
+# ---------------------------------------------------------------------
+data_with_ratio:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/data_with_ratio.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+encoded_ride_data:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/encoded_ride_data.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+# ---------------------------------------------------------------------
+# FEATURE STORE ARTIFACT — the fitted OneHotEncoder. This is the object
+# that guarantees training and inference compute features identically.
+# Persisted with Kedro's pickle dataset so it can be loaded, unchanged,
+# by the inference pipeline and (eventually) the FastAPI backend.
+# ---------------------------------------------------------------------
+categorical_encoder:
+  type: pickle.PickleDataset
+  filepath: data/04_feature/categorical_encoder.pickle
+  metadata:
+    kedro-viz:
+      layer: feature
+
+# ---------------------------------------------------------------------
+# OUTPUT — the final, model-ready feature table.
+# ---------------------------------------------------------------------
+feature_table:
+  type: pandas.ParquetDataset
+  filepath: data/04_feature/feature_table.parquet
+  metadata:
+    kedro-viz:
+      layer: feature
+

@@ -85,3 +85,49 @@ data_processing:
     Vehicle_Type: category
     Expected_Ride_Duration: int64
     Historical_Cost_of_Ride: float64
+
+
+feature_engineering:
+
+  # ---------------------------------------------------------------------
+  # Demand-supply ratio engineering. EDA found ~7% outliers in this ratio
+  # by the IQR method, driven by rows with very low driver counts, hence
+  # the outlier cap rather than leaving the raw ratio unbounded.
+  # ---------------------------------------------------------------------
+  demand_supply_ratio:
+    numerator_column: Number_of_Riders
+    denominator_column: Number_of_Drivers
+    outlier_cap_percentile: 0.99  # values above the 99th percentile are capped, not removed
+
+  # ---------------------------------------------------------------------
+  # Categorical columns to one-hot encode. All four categoricals are kept
+  # despite Location_Category, Time_of_Booking, and Customer_Loyalty_Status
+  # showing weak importance in both the impurity-based and permutation
+  # importance checks.
+  # ---------------------------------------------------------------------
+  categorical_columns:
+    - Location_Category
+    - Customer_Loyalty_Status
+    - Time_of_Booking
+    - Vehicle_Type
+
+  # ---------------------------------------------------------------------
+  # OneHotEncoder configuration.
+  #   handle_unknown: "ignore" -> a category never seen during training
+  #     (e.g. a new Location_Category value in future data) is encoded as
+  #     all-zeros at inference time instead of raising an error. This
+  #     matters because the inference pipeline reuses this exact fitted
+  #     encoder and must not crash on unexpected-but-plausible input.
+  #   drop: "first" -> drops one level per categorical column to avoid
+  #     perfect multicollinearity, which matters for the Linear Regression
+  #     baseline model even though tree-based models are unaffected by it.
+  # ---------------------------------------------------------------------
+  encoder:
+    handle_unknown: ignore
+    drop: first
+
+  # ---------------------------------------------------------------------
+  # The prediction target. Kept in the feature table for the training
+  # pipeline; the inference pipeline drops this column before scoring.
+  # ---------------------------------------------------------------------
+  target_column: Historical_Cost_of_Ride
