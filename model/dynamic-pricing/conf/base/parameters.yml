@@ -1,0 +1,87 @@
+data_processing:
+
+  # ---------------------------------------------------------------------
+  # Expected schema: column name -> expected pandas dtype (as a string).
+  # Used by `validate_schema` to fail fast if the raw data's structure
+  # ever drifts from what the pipeline was built against.
+  # ---------------------------------------------------------------------
+  expected_schema:
+    Number_of_Riders: int64
+    Number_of_Drivers: int64
+    Location_Category: object
+    Customer_Loyalty_Status: object
+    Number_of_Past_Rides: int64
+    Average_Ratings: float64
+    Time_of_Booking: object
+    Vehicle_Type: object
+    Expected_Ride_Duration: int64
+    Historical_Cost_of_Ride: float64
+
+  # ---------------------------------------------------------------------
+  # Duplicate handling. `null` (None) means: check duplicates across ALL
+  # columns (an exact full-row match). Set to a list of column names to
+  # narrow the duplicate definition instead.
+  # ---------------------------------------------------------------------
+  duplicate_subset: null
+
+  # ---------------------------------------------------------------------
+  # Missing value strategy per column. Any column not listed here falls
+  # back to "drop_row" by default (see `handle_missing_values`).
+  #
+  # The historical dataset had zero missing values at EDA time, so these
+  # strategies are a safety net for future data refreshes, not a fix for
+  # a known problem today.
+  # ---------------------------------------------------------------------
+  missing_value_strategy:
+    Number_of_Riders: median
+    Number_of_Drivers: median
+    Number_of_Past_Rides: median
+    Average_Ratings: median
+    Expected_Ride_Duration: median
+    Location_Category: mode
+    Customer_Loyalty_Status: mode
+    Time_of_Booking: mode
+    Vehicle_Type: mode
+    Historical_Cost_of_Ride: drop_row  # never impute the prediction target
+
+  # ---------------------------------------------------------------------
+  # Sane value ranges per column, used by `validate_value_ranges` to catch
+  # corrupt or nonsensical rows. Bounds are set from the EDA describe()
+  # output with a small safety margin, not the exact observed min/max, so
+  # legitimate new data isn't rejected for being slightly outside the
+  # historical sample's range.
+  # ---------------------------------------------------------------------
+  value_ranges:
+    Number_of_Riders:
+      min: 0
+      max: 500
+    Number_of_Drivers:
+      min: 0
+      max: 500
+    Number_of_Past_Rides:
+      min: 0
+      max: 1000
+    Average_Ratings:
+      min: 1.0
+      max: 5.0
+    Expected_Ride_Duration:
+      min: 0
+      max: 600
+    Historical_Cost_of_Ride:
+      min: 0
+      max: 5000
+
+  # ---------------------------------------------------------------------
+  # Final dtypes enforced right before handing off to feature_engineering.
+  # ---------------------------------------------------------------------
+  final_dtypes:
+    Number_of_Riders: int64
+    Number_of_Drivers: int64
+    Location_Category: category
+    Customer_Loyalty_Status: category
+    Number_of_Past_Rides: int64
+    Average_Ratings: float64
+    Time_of_Booking: category
+    Vehicle_Type: category
+    Expected_Ride_Duration: int64
+    Historical_Cost_of_Ride: float64

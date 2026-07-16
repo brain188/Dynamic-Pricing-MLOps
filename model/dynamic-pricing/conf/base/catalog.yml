@@ -1,0 +1,68 @@
+# Here you can define all your datasets by using simple YAML syntax.
+#
+# Documentation for this file format can be found in "The Data Catalog"
+# Link: https://docs.kedro.org/en/stable/catalog-data/introduction/#data-catalog
+
+
+# ---------------------------------------------------------------------
+# INPUT — the original historical dataset, untouched.
+# ---------------------------------------------------------------------
+raw_ride_data:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/dynamic_pricing.csv
+  metadata:
+    kedro-viz:
+      layer: raw
+
+
+# INTERMEDIATE OUTPUTS 
+
+validated_ride_data:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/validated_ride_data.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+deduplicated_ride_data:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/deduplicated_ride_data.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+imputed_ride_data:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/imputed_ride_data.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+range_validated_ride_data:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/range_validated_ride_data.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+# ---------------------------------------------------------------------
+# OUTPUT — the clean, validated dataset consumed by feature_engineering.
+# ---------------------------------------------------------------------
+cleaned_ride_data:
+  type: pandas.ParquetDataset
+  filepath: data/03_primary/cleaned_ride_data.parquet
+  metadata:
+    kedro-viz:
+      layer: primary
+
+# ---------------------------------------------------------------------
+# REPORTING — auditable record of what validate_value_ranges removed and
+# why. Not consumed by any downstream pipeline; this is for humans
+# (and, later, the monitoring pipeline) to review.
+# ---------------------------------------------------------------------
+data_quality_report:
+  type: pandas.CSVDataset
+  filepath: data/08_reporting/data_processing_quality_report.csv
+  metadata:
+    kedro-viz:
+      layer: reporting
