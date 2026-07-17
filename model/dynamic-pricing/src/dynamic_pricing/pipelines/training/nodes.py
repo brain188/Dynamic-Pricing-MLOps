@@ -4,18 +4,29 @@ This module trains and compares five regression models against the
 feature table produced by ``feature_engineering``:
 
     1. Linear Regression, duration-only  (the mandatory baseline)
-    2. Random Forest, all features
-    3. LightGBM, all features
-    4. XGBoost, all features
-    5. CatBoost, all features
+    2. Random Forest, all features       (regularized via cross-validated search)
+    3. LightGBM, all features            (regularized via cross-validated search)
+    4. XGBoost, all features             (regularized via cross-validated search)
+    5. CatBoost, all features            (regularized via cross-validated search)
+
+The four non-baseline models are tuned with ``RandomizedSearchCV`` over a
+*regularization-leaning* search space (shallower trees, fewer leaves,
+stronger L1/L2 penalties, subsampling) rather than fixed hand-picked
+hyperparameters. This exists because an initial fixed-hyperparameter run
+found every tree/boosting model underperforming the duration-only
+baseline — a signature of overfitting on this project's small (1000-row)
+dataset and its several low-signal categorical features (confirmed weak
+by both impurity-based and permutation feature importance during EDA).
+Searching toward more conservative configurations is the correct next
+step to check whether that gap is genuine (the true relationship really
+is closely linear) or just undertuning.
 
 Every model is logged to MLflow (Experiment Tracking)
 as its own run, with parameters, test-set metrics, and the fitted model
 artifact. The model with the best test-set RMSE is then registered in the
-MLflow Model Registry and aliased ``"production"`` — this
-alias is exactly what the ``inference`` pipeline and the FastAPI backend
-will resolve at load time, so promoting a new winner later is a registry
-operation, not a code change.
+MLflow Model Registry and aliased ``"production"`` — this alias is exactly
+what the ``inference`` pipeline and the FastAPI backend will resolve at
+load time, so promoting a new winner later is a registry operation, not a code change.
 
 """
 
@@ -31,10 +42,11 @@ import pandas as pd
 from catboost import CatBoostRegressor
 from lightgbm import LGBMRegressor
 from mlflow.tracking import MlflowClient
+from sklearn.base import BaseEstimator
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.linear_model import LinearRegression
 from sklearn.metrics import mean_absolute_error, mean_squared_error, r2_score
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import RandomizedSearchCV, train_test_split
 from xgboost import XGBRegressor
 
 logger = logging.getLogger(__name__)
@@ -87,7 +99,7 @@ def train_baseline_model(
 
     This model mirrors the company's *current* pricing approach (fare
     determined by ride duration alone) and is the benchmark every other
-    model must be compared against per Requirement P2.
+    model must be compared against.
 
     Args:
         X_train: Training features (only the configured baseline column(s)
@@ -115,108 +127,191 @@ def train_baseline_model(
     return model
 
 
+def _tune_regressor(
+    estimator_class: type[BaseEstimator],
+    fixed_params: dict[str, Any],
+    search_space: dict[str, Any],
+    X_train: pd.DataFrame,
+    y_train: pd.Series,
+    tuning_config: dict[str, Any],
+    model_label: str,
+) -> BaseEstimator:
+
+    """Runs a cross-validated randomized hyperparameter search and refits
+    the best configuration on the full training set.
+
+    Shared by all four tree/boosting models so each one is tuned with the
+    exact same search procedure (only the estimator class, fixed params,
+    and search space differ), rather than four subtly different tuning
+    implementations.
+
+    Args:
+        estimator_class: The unfitted regressor class to tune (e.g.
+            ``RandomForestRegressor``).
+        fixed_params: Keyword arguments held constant across the search
+            (e.g. ``random_state``, ``n_jobs``) — not tuned.
+        search_space: A mapping of hyperparameter name to a list of
+            candidate values, passed to ``RandomizedSearchCV`` as
+            ``param_distributions``. Intentionally regularization-leaning
+            (shallower trees, stronger penalties) per this module's
+            docstring.
+        X_train: Training features.
+        y_train: Training target values.
+        tuning_config: The shared ``training.tuning`` parameters block.
+            Must contain ``cv_folds``, ``n_iter``, ``scoring``, and
+            ``random_state``.
+        model_label: A human-readable name used only for logging.
+
+    Returns:
+        The best estimator found, refit on the entire training set
+        (``RandomizedSearchCV(refit=True)`` does this automatically).
+    """
+    base_estimator = estimator_class(**fixed_params)
+
+    search = RandomizedSearchCV(
+        estimator=base_estimator,
+        param_distributions=search_space,
+        n_iter=tuning_config["n_iter"],
+        cv=tuning_config["cv_folds"],
+        scoring=tuning_config["scoring"],
+        random_state=tuning_config["random_state"],
+        n_jobs=-1,
+        refit=True,
+    )
+    search.fit(X_train, y_train)
+
+    logger.info(
+        "Tuned '%s' via %d-fold RandomizedSearchCV (%d candidates tried). "
+        "Best CV %s: %.4f. Best params: %s.",
+        model_label,
+        tuning_config["cv_folds"],
+        tuning_config["n_iter"],
+        tuning_config["scoring"],
+        search.best_score_,
+        search.best_params_,
+    )
+
+    return search.best_estimator_
+
+
 def train_random_forest(
     X_train: pd.DataFrame, y_train: pd.Series, parameters: dict[str, Any]
 ) -> RandomForestRegressor:
 
-    """Trains a Random Forest regressor on all features.
+    """Tunes and trains a Random Forest regressor on all features.
 
     Args:
         X_train: Training features (full feature set).
         y_train: Training target values.
         parameters: The ``training`` parameters dictionary. Must contain a
-            ``random_forest`` block with keyword arguments for
-            ``sklearn.ensemble.RandomForestRegressor``.
+            ``random_forest`` block with ``fixed_params`` and
+            ``search_space`` sub-blocks, and a shared ``tuning`` block.
 
     Returns:
-        A fitted ``RandomForestRegressor``.
+        The best-tuned, fully-refit ``RandomForestRegressor``.
     """
     y_train = y_train.squeeze()
     config = parameters["random_forest"]
 
-    model = RandomForestRegressor(**config)
-    model.fit(X_train, y_train)
-
-    logger.info("Trained Random Forest with config: %s.", config)
-    return model
+    return _tune_regressor(
+        estimator_class=RandomForestRegressor,
+        fixed_params=config["fixed_params"],
+        search_space=config["search_space"],
+        X_train=X_train,
+        y_train=y_train,
+        tuning_config=parameters["tuning"],
+        model_label="random_forest",
+    )
 
 
 def train_lightgbm_model(
     X_train: pd.DataFrame, y_train: pd.Series, parameters: dict[str, Any]
 ) -> LGBMRegressor:
 
-    """Trains a LightGBM regressor on all features.
+    """Tunes and trains a LightGBM regressor on all features.
 
     Args:
         X_train: Training features (full feature set).
         y_train: Training target values.
         parameters: The ``training`` parameters dictionary. Must contain a
-            ``lightgbm`` block with keyword arguments for
-            ``lightgbm.LGBMRegressor``.
+            ``lightgbm`` block with ``fixed_params`` and ``search_space``
+            sub-blocks, and a shared ``tuning`` block.
 
     Returns:
-        A fitted ``LGBMRegressor``.
+        The best-tuned, fully-refit ``LGBMRegressor``.
     """
     y_train = y_train.squeeze()
     config = parameters["lightgbm"]
 
-    model = LGBMRegressor(**config)
-    model.fit(X_train, y_train)
-
-    logger.info("Trained LightGBM with config: %s.", config)
-    return model
+    return _tune_regressor(
+        estimator_class=LGBMRegressor,
+        fixed_params=config["fixed_params"],
+        search_space=config["search_space"],
+        X_train=X_train,
+        y_train=y_train,
+        tuning_config=parameters["tuning"],
+        model_label="lightgbm",
+    )
 
 
 def train_xgboost_model(
     X_train: pd.DataFrame, y_train: pd.Series, parameters: dict[str, Any]
 ) -> XGBRegressor:
 
-    """Trains an XGBoost regressor on all features.
+    """Tunes and trains an XGBoost regressor on all features.
 
     Args:
         X_train: Training features (full feature set).
         y_train: Training target values.
         parameters: The ``training`` parameters dictionary. Must contain an
-            ``xgboost`` block with keyword arguments for
-            ``xgboost.XGBRegressor``.
+            ``xgboost`` block with ``fixed_params`` and ``search_space``
+            sub-blocks, and a shared ``tuning`` block.
 
     Returns:
-        A fitted ``XGBRegressor``.
+        The best-tuned, fully-refit ``XGBRegressor``.
     """
     y_train = y_train.squeeze()
     config = parameters["xgboost"]
 
-    model = XGBRegressor(**config)
-    model.fit(X_train, y_train)
-
-    logger.info("Trained XGBoost with config: %s.", config)
-    return model
+    return _tune_regressor(
+        estimator_class=XGBRegressor,
+        fixed_params=config["fixed_params"],
+        search_space=config["search_space"],
+        X_train=X_train,
+        y_train=y_train,
+        tuning_config=parameters["tuning"],
+        model_label="xgboost",
+    )
 
 
 def train_catboost_model(
     X_train: pd.DataFrame, y_train: pd.Series, parameters: dict[str, Any]
 ) -> CatBoostRegressor:
 
-    """Trains a CatBoost regressor on all features.
+    """Tunes and trains a CatBoost regressor on all features.
 
     Args:
         X_train: Training features (full feature set).
         y_train: Training target values.
         parameters: The ``training`` parameters dictionary. Must contain a
-            ``catboost`` block with keyword arguments for
-            ``catboost.CatBoostRegressor``.
+            ``catboost`` block with ``fixed_params`` and ``search_space``
+            sub-blocks, and a shared ``tuning`` block.
 
     Returns:
-        A fitted ``CatBoostRegressor``.
+        The best-tuned, fully-refit ``CatBoostRegressor``.
     """
     y_train = y_train.squeeze()
     config = parameters["catboost"]
 
-    model = CatBoostRegressor(**config)
-    model.fit(X_train, y_train)
-
-    logger.info("Trained CatBoost with config: %s.", config)
-    return model
+    return _tune_regressor(
+        estimator_class=CatBoostRegressor,
+        fixed_params=config["fixed_params"],
+        search_space=config["search_space"],
+        X_train=X_train,
+        y_train=y_train,
+        tuning_config=parameters["tuning"],
+        model_label="catboost",
+    )
 
 
 def collect_trained_models(
@@ -349,7 +444,6 @@ def log_and_register_best_model(
     X_train: pd.DataFrame,
     parameters: dict[str, Any],
 ) -> dict[str, Any]:
-
     """Logs every model's run to MLflow and promotes the best one.
 
     Each model is logged as its own MLflow run (parameters + test metrics

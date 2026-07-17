@@ -1,9 +1,9 @@
 {
-  "best_model_name": "linear_regression_baseline",
-  "best_model_version": 1,
+  "best_model_name": "catboost",
+  "best_model_version": 6,
   "metrics": {
-    "rmse": 72.5050542731892,
-    "mae": 57.26345090929235,
-    "r2": 0.8558182356557322
+    "rmse": 68.88488384638714,
+    "mae": 52.01053953083612,
+    "r2": 0.8698567546010917
   }
 }

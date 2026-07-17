@@ -32,10 +32,28 @@ def parameters(tmp_path):
         "random_state": 42,
         "baseline_model_key": "linear_regression_baseline",
         "baseline_feature_columns": ["duration"],
-        "random_forest": {"n_estimators": 20, "max_depth": 4, "random_state": 42, "n_jobs": 1},
-        "lightgbm": {"n_estimators": 20, "max_depth": 4, "random_state": 42, "verbosity": -1},
-        "xgboost": {"n_estimators": 20, "max_depth": 4, "random_state": 42, "verbosity": 0},
-        "catboost": {"iterations": 20, "depth": 4, "random_seed": 42, "verbose": False},
+        "tuning": {
+            "cv_folds": 3,
+            "n_iter": 3,
+            "scoring": "neg_root_mean_squared_error",
+            "random_state": 42,
+        },
+        "random_forest": {
+            "fixed_params": {"random_state": 42, "n_jobs": 1},
+            "search_space": {"n_estimators": [10, 20], "max_depth": [3, 4]},
+        },
+        "lightgbm": {
+            "fixed_params": {"random_state": 42, "verbosity": -1},
+            "search_space": {"n_estimators": [10, 20], "max_depth": [3, 4], "num_leaves": [7, 15]},
+        },
+        "xgboost": {
+            "fixed_params": {"random_state": 42, "verbosity": 0},
+            "search_space": {"n_estimators": [10, 20], "max_depth": [2, 3]},
+        },
+        "catboost": {
+            "fixed_params": {"random_seed": 42, "verbose": False},
+            "search_space": {"iterations": [10, 20], "depth": [3, 4]},
+        },
         "mlflow": {
             "tracking_uri": f"sqlite:///{db_path}",
             "experiment_name": "test_dynamic_pricing",
@@ -43,6 +61,7 @@ def parameters(tmp_path):
             "production_alias": "production",
         },
     }
+
 
 
 @pytest.fixture
