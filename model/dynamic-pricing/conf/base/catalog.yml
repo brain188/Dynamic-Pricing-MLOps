@@ -181,3 +181,65 @@ training_summary:
   metadata:
     kedro-viz:
       layer: reporting
+
+
+# INFERENCE ---------------------------------------------------------------------------------------
+
+
+# ---------------------------------------------------------------------
+# INPUT — new, unseen ride requests to be priced. In a real deployment
+# this would be replaced by whatever the backend actually receives (e.g.
+# a request body converted to a single-row dataframe); this file-based
+# entry is for batch/offline inference runs and local testing.
+# ---------------------------------------------------------------------
+new_ride_requests:
+  type: pandas.CSVDataset
+  filepath: data/01_raw/new_ride_requests.csv
+  metadata:
+    kedro-viz:
+      layer: raw
+
+# ---------------------------------------------------------------------
+# INTERMEDIATE OUTPUTS.
+# ---------------------------------------------------------------------
+validated_ride_requests:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/validated_ride_requests.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+ride_requests_with_ratio:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/ride_requests_with_ratio.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+encoded_ride_requests:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/encoded_ride_requests.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+raw_predictions:
+  type: pandas.ParquetDataset
+  filepath: data/02_intermediate/raw_predictions.parquet
+  metadata:
+    kedro-viz:
+      layer: intermediate
+
+# ---------------------------------------------------------------------
+# OUTPUT — final, sanity-checked predictions. This is what a batch
+# inference run hands off to whoever/whatever consumes fares next (a
+# report, a downstream system, or — for the live-serving path — this is
+# conceptually what the FastAPI backend returns per-request instead of
+# writing to disk).
+# ---------------------------------------------------------------------
+predictions_output:
+  type: pandas.ParquetDataset
+  filepath: data/07_model_output/predictions_output.parquet
+  metadata:
+    kedro-viz:
+      layer: model_output

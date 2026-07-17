@@ -2,6 +2,7 @@ from kedro.pipeline import Pipeline
 
 from .pipelines.data_processing import create_data_processing_pipeline as dp
 from .pipelines.feature_engineering import create_feature_engineering_pipeline as fe
+from .pipelines.inference import create_inference_pipeline as inf
 from .pipelines.training import create_training_pipeline as tr
 
 
@@ -12,6 +13,7 @@ def register_pipelines() -> dict[str, Pipeline]:
     data_processing_pipeline = dp()
     feature_engineering_pipeline = fe()
     training_pipeline = tr()
+    inference_pipeline = inf()
 
     return {
         "__default__": ( data_processing_pipeline
@@ -20,5 +22,6 @@ def register_pipelines() -> dict[str, Pipeline]:
         ),
         "data_processing": data_processing_pipeline,
         "feature_engineering": feature_engineering_pipeline,
-        "training": training_pipeline
+        "training": training_pipeline,
+        "inference": inference_pipeline
     }

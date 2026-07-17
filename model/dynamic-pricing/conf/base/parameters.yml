@@ -229,3 +229,59 @@ training:
     experiment_name: dynamic_pricing
     registered_model_name: dynamic_pricing_model
     production_alias: production
+
+
+
+inference:
+
+  # ---------------------------------------------------------------------
+  # Expected schema for NEW ride requests. Deliberately excludes
+  # `Historical_Cost_of_Ride` — that's the column we're predicting, so it
+  # cannot be expected on the way in. Every other column matches
+  # `data_processing`'s expected_schema exactly, since the raw shape of a
+  # single new ride request is the same as one row of historical data
+  # minus the target.
+  # ---------------------------------------------------------------------
+  expected_schema:
+    Number_of_Riders: int64
+    Number_of_Drivers: int64
+    Location_Category: object
+    Customer_Loyalty_Status: object
+    Number_of_Past_Rides: int64
+    Average_Ratings: float64
+    Time_of_Booking: object
+    Vehicle_Type: object
+    Expected_Ride_Duration: int64
+
+  # ---------------------------------------------------------------------
+  # MLflow model resolution. Points at the SAME registry used by
+  # `training` — the model is always resolved by alias, never a hardcoded
+  # version number, so promoting a new winner after retraining requires
+  # zero code changes here.
+  # ---------------------------------------------------------------------
+  mlflow:
+    tracking_uri: sqlite:///mlflow.db
+    registered_model_name: dynamic_pricing_model
+    production_alias: production
+
+  # ---------------------------------------------------------------------
+  # Output column naming.
+  # ---------------------------------------------------------------------
+  prediction_column_name: predicted_fare
+
+  # ---------------------------------------------------------------------
+  # Sanity bounds for Requirement P4 ("predicted prices are sane").
+  # Bounds match data_processing's value_ranges for Historical_Cost_of_Ride,
+  # since a predicted fare should fall within the same business-plausible
+  # range as historical fares did.
+  #   action: "clip" -> silently clip out-of-bounds predictions to the
+  #     nearest bound (safe default for a live pricing endpoint that must
+  #     always return *something* usable).
+  #   action: "flag" -> leave predictions unmodified but add an
+  #     `is_out_of_bounds` column instead, for pipelines that prefer to
+  #     surface the issue rather than mask it (e.g. a monitoring context).
+  # ---------------------------------------------------------------------
+  sanity_bounds:
+    min: 0
+    max: 5000
+    action: clip
