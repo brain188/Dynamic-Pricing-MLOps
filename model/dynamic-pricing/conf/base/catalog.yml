@@ -113,3 +113,71 @@ feature_table:
     kedro-viz:
       layer: feature
 
+
+# TRAINING ----------------------------------------------------------------------------------------------
+
+# ---------------------------------------------------------------------
+# Individual trained model artifacts.
+# ---------------------------------------------------------------------
+baseline_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/baseline_model.pickle
+  metadata:
+    kedro-viz:
+      layer: models
+
+random_forest_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/random_forest_model.pickle
+  metadata:
+    kedro-viz:
+      layer: models
+
+lightgbm_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/lightgbm_model.pickle
+  metadata:
+    kedro-viz:
+      layer: models
+
+xgboost_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/xgboost_model.pickle
+  metadata:
+    kedro-viz:
+      layer: models
+
+catboost_model:
+  type: pickle.PickleDataset
+  filepath: data/06_models/catboost_model.pickle
+  metadata:
+    kedro-viz:
+      layer: models
+
+trained_models:
+  type: pickle.PickleDataset
+  filepath: data/06_models/trained_models.pickle
+  metadata:
+    kedro-viz:
+      layer: models
+
+# ---------------------------------------------------------------------
+# The model comparison table
+# ---------------------------------------------------------------------
+model_comparison_table:
+  type: pandas.CSVDataset
+  filepath: data/08_reporting/model_comparison_table.csv
+  metadata:
+    kedro-viz:
+      layer: reporting
+
+# ---------------------------------------------------------------------
+# Final training summary: which model won, its registry version, and its
+# metrics. Saved as JSON for easy consumption by the backend
+# ---------------------------------------------------------------------
+training_summary:
+  type: json.JSONDataset
+  filepath: data/08_reporting/training_summary.json
+  metadata:
+    kedro-viz:
+      layer: reporting

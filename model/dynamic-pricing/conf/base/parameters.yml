@@ -131,3 +131,66 @@ feature_engineering:
   # pipeline; the inference pipeline drops this column before scoring.
   # ---------------------------------------------------------------------
   target_column: Historical_Cost_of_Ride
+
+
+
+training:
+
+  # ---------------------------------------------------------------------
+  # Train/test split.
+  # ---------------------------------------------------------------------
+  target_column: Historical_Cost_of_Ride
+  test_size: 0.2
+  random_state: 42
+
+  # ---------------------------------------------------------------------
+  # Baseline model configuration. Mirrors the company's current pricing
+  # approach: fare determined by duration alone. Every other model must
+  # beat this.
+  # ---------------------------------------------------------------------
+  baseline_model_key: linear_regression_baseline
+  baseline_feature_columns:
+    - Expected_Ride_Duration
+
+  # ---------------------------------------------------------------------
+  # Candidate model hyperparameters. Kept modest/default-leaning
+  # deliberately — this project's goal is a defensible, well-evaluated
+  # comparison, not squeezing out the last 0.5% via heavy tuning. Once the
+  # winning algorithm is known, a dedicated tuning pass can follow.
+  # ---------------------------------------------------------------------
+  random_forest:
+    n_estimators: 300
+    max_depth: 12
+    min_samples_leaf: 2
+    random_state: 42
+    n_jobs: -1
+
+  lightgbm:
+    n_estimators: 300
+    learning_rate: 0.05
+    max_depth: -1
+    random_state: 42
+    verbosity: -1
+
+  xgboost:
+    n_estimators: 300
+    learning_rate: 0.05
+    max_depth: 6
+    random_state: 42
+    verbosity: 0
+
+  catboost:
+    iterations: 300
+    learning_rate: 0.05
+    depth: 6
+    random_seed: 42
+    verbose: false
+
+  # ---------------------------------------------------------------------
+  # MLflow configuration.
+  # ---------------------------------------------------------------------
+  mlflow:
+    tracking_uri: sqlite:///mlflow.db
+    experiment_name: dynamic_pricing
+    registered_model_name: dynamic_pricing_model
+    production_alias: production

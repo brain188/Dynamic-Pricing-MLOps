@@ -1,0 +1,9 @@
+{
+  "best_model_name": "linear_regression_baseline",
+  "best_model_version": 1,
+  "metrics": {
+    "rmse": 72.5050542731892,
+    "mae": 57.26345090929235,
+    "r2": 0.8558182356557322
+  }
+}
