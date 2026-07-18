@@ -1,0 +1,10 @@
+Metadata-Version: 2.4
+Name: dynamic-pricing-backend
+Version: 1.0.0
+Summary: FastAPI serving layer for the dynamic pricing model.
+Requires-Python: >=3.12.13
+Requires-Dist: fastapi>=0.111
+Requires-Dist: uvicorn[standard]>=0.29
+Requires-Dist: pydantic>=2.7
+Requires-Dist: pydantic-settings>=2.2
+Requires-Dist: catboost>=1.2.7
